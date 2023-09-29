@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "synch.h" // to use lock & semaphore 
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -93,6 +94,12 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* Considering Priority Inversion & Priority Donation */
+    struct lock *wait_on_lock;
+    int init_priority;
+    struct list donation_list;
+    struct list_elem donation_elem;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -100,6 +107,9 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+
+    int64_t wake_up_tick;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -138,4 +148,11 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+
+void thread_sleep (int64_t ticks);
+void thread_awake(int64_t ticks);
+
+bool priority_compare(struct list_elem* , struct list_elem* , void*);
+void thread_priority_test(void);
+bool donation_priority_compare(struct list_elem*, struct list_elem*, void*);
 #endif /* threads/thread.h */
