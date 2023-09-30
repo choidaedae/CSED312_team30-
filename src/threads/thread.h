@@ -159,14 +159,16 @@ bool priority_compare(struct list_elem* , struct list_elem* , void*);
 void thread_priority_test(void);
 bool donation_priority_compare(struct list_elem*, struct list_elem*, void*);
 
-//void mlfqs_calculate_priority(struct thread* t);
+void mlfqs_calculate_priority(struct thread* t);
 void mlfqs_calculate_recent_cpu(struct thread* t);
-void mlfqs_recalculate_recent_cpu();
-//void mlfqs_calculate_load_avg(int ready_threads);
-void mlfqs_calculate_load_avg(void);
+void mlfqs_calculate_load_avg(int ready_threads);
+
+//void mlfqs_recalculate_recent_cpu();
+//void mlfqs_calculate_load_avg(void);
+
 void mlfqs_increment_recent_cpu();
 
 void mlfqs_priority();
 void mlfqs_recent_cpu();
-//void mlfqs_load_avg();
+void mlfqs_load_avg();
 #endif /* threads/thread.h */

@@ -804,28 +804,18 @@ void mlfqs_calculate_priority(struct thread* t)
 
 }
 
-void mlfqs_recalculate_priority (void)
-{
-  struct list_elem *e;
-
-  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
-    struct thread *t = list_entry (e, struct thread, allelem);
-    mlfqs_calculate_priority (t);
-  }
-}
-
 void mlfqs_calculate_recent_cpu(struct thread* t)
 {
   if (t == idle_thread) return;
   t->recent_cpu = add_fp_int (multi_fp_fp (div_fp_fp (multi_fp_int (load_avg, 2), add_fp_int (multi_fp_int (load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
 
-/*
+
 void mlfqs_calculate_load_avg(int ready_threads)
 {
   load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), ready_threads));
 }
-*/ // mlfqs_load_avg랑 비슷한데 안 쓰는 함수인듯? 
+
 
 void mlfqs_increment_recent_cpu()
 {
@@ -835,13 +825,14 @@ void mlfqs_increment_recent_cpu()
   }
 }
 
-void mlfqs_recalculate_recent_cpu()
+
+void mlfqs_priority (void)
 {
   struct list_elem *e;
 
   for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
     struct thread *t = list_entry (e, struct thread, allelem);
-    mlfqs_calculate_recent_cpu (t);
+    mlfqs_calculate_priority (t);
   }
 }
 
@@ -854,20 +845,22 @@ void mlfqs_recent_cpu()
     mlfqs_calculate_recent_cpu (t);
   }
 }
-void mlfqs_calculate_load_avg(void)
+void mlfqs_load_avg(void)
 {
-  // int ready_threads = list_size (&ready_list);
+  int ready_threads = list_size (&ready_list);
   
-  // if (thread_current () != idle_thread)
-  // {
-  //   ready_threads++;
-  // }
-
-  if(thread_current()==idle_thread)
+  if (thread_current () != idle_thread)
   {
-    load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), list_size (&ready_list)));
+    ready_threads++;
   }
-  else{
-    load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), list_size (&ready_list)+1));
-  }
+
+  mlfqs_calculate_load_avg(ready_threads);
+
+  // if(thread_current()==idle_thread)
+  // {
+  //   load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), list_size (&ready_list)));
+  // }
+  // else{
+  //   load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), list_size (&ready_list)+1));
+  // }
 }
