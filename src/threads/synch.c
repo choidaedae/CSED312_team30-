@@ -195,6 +195,9 @@ lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+
+//### lock_acquire previous version 
+/*
 void
 lock_acquire (struct lock *lock)
 {
@@ -204,7 +207,8 @@ lock_acquire (struct lock *lock)
 
   struct thread* t_cur = thread_current();
 
-  if(lock->holder != NULL){ // if holder exists
+
+  if(lock->holder != NULL&&!thread_mlfqs){ // if holder exists
 
     t_cur->wait_on_lock = lock;
     list_insert_ordered(&lock->holder->donation_list, &t_cur->donation_elem, 
@@ -214,8 +218,43 @@ lock_acquire (struct lock *lock)
   }
 
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  if(!thread_mlfqs)
+  {
+    t_cur->wait_on_lock=NULL;
+  }
+  lock->holder = t_cur;
 }
+*/
+
+
+void
+lock_acquire (struct lock *lock)
+{
+  ASSERT (lock != NULL);
+  ASSERT (!intr_context ());
+  ASSERT (!lock_held_by_current_thread (lock));
+
+  struct thread* t_cur = thread_current();
+
+  if (thread_mlfqs) {
+    sema_down (&lock->semaphore);
+    lock->holder = t_cur;
+    return;
+  }
+
+  if(lock->holder){ // if holder exists
+
+    t_cur->wait_on_lock = lock;
+    list_insert_ordered(&lock->holder->donation_list, &t_cur->donation_elem, 
+    donation_priority_compare, 0);
+    priority_donation();
+  }
+
+  sema_down (&lock->semaphore);
+  t_cur->wait_on_lock=NULL;
+  lock->holder = t_cur;
+}
+
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -242,6 +281,10 @@ lock_try_acquire (struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
+
+//### lock_release previous version
+
+/*
 void
 lock_release (struct lock *lock) 
 {
@@ -252,8 +295,37 @@ lock_release (struct lock *lock)
   priority_newly_set();
 
   lock->holder = NULL;
+
+  if (!thread_mlfqs) 
+  {
+    remove_lock (lock);
+    priority_newly_set();
+  }
+
   sema_up (&lock->semaphore);
 }
+*/
+
+
+void
+lock_release (struct lock *lock) 
+{
+  ASSERT (lock != NULL);
+  ASSERT (lock_held_by_current_thread (lock));
+
+  lock->holder = NULL;
+
+  if (!thread_mlfqs) 
+  {
+    remove_lock (lock);
+    priority_newly_set();
+  }
+
+
+  sema_up (&lock->semaphore);
+  return; 
+}
+
 
 /* Returns true if the current thread holds LOCK, false
    otherwise.  (Note that testing whether some other thread holds
