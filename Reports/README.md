@@ -1,3 +1,7 @@
+### Contributors
+- Hawoo Jeong (howru0321@postech.ac.kr)
+- Daehyeon Choi (daehyeonchoi@postech.ac.kr)
+
 ### Contents
 - All reports about our Pintos Projects are available in here.
 
