@@ -686,22 +686,6 @@ thread_awake(int64_t ticks)
     sleep_list_elem=list_remove(sleep_list_elem);
     thread_unblock(cur_t);
   }
-  
-
- /*
-  struct list_elem *e = list_begin (&sleep_list);
-
-  while (e != list_end (&sleep_list)){
-    struct thread *t = list_entry (e, struct thread, elem);
-    if (t->wake_up_tick <= ticks){	// 스레드가 일어날 시간이 되었는지 확인
-      e = list_remove (e);	// sleep list 에서 제거
-      thread_unblock (t);	// 스레드 unblock
-    }
-    else 
-      e = list_next (e);
-  }
-
-  */
 }
 
 //newly implemented functions
@@ -855,12 +839,4 @@ void mlfqs_load_avg(void)
   }
 
   mlfqs_calculate_load_avg(ready_threads);
-
-  // if(thread_current()==idle_thread)
-  // {
-  //   load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), list_size (&ready_list)));
-  // }
-  // else{
-  //   load_avg = add_fp_fp (multi_fp_fp (div_fp_int (int_to_fp (59), 60), load_avg), multi_fp_int (div_fp_int (int_to_fp (1), 60), list_size (&ready_list)+1));
-  // }
 }

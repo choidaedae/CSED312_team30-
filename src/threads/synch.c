@@ -32,7 +32,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-bool semaphore_priority_compare(struct list_elem *t1, struct list_elem *t2, void *aux UNUSED);
+bool semaphore_priority_compare(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -70,6 +70,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
+      //list_push_back
       list_insert_ordered (&sema->waiters, &thread_current ()->elem, priority_compare, 0);
       thread_block ();
     }
@@ -196,35 +197,8 @@ lock_init (struct lock *lock)
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
 
-//### lock_acquire previous version 
-/*
-void
-lock_acquire (struct lock *lock)
-{
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (!lock_held_by_current_thread (lock));
-
-  struct thread* t_cur = thread_current();
 
 
-  if(lock->holder != NULL&&!thread_mlfqs){ // if holder exists
-
-    t_cur->wait_on_lock = lock;
-    list_insert_ordered(&lock->holder->donation_list, &t_cur->donation_elem, 
-    donation_priority_compare, 0);
-
-    priority_donation();
-  }
-
-  sema_down (&lock->semaphore);
-  if(!thread_mlfqs)
-  {
-    t_cur->wait_on_lock=NULL;
-  }
-  lock->holder = t_cur;
-}
-*/
 
 
 void
@@ -282,29 +256,7 @@ lock_try_acquire (struct lock *lock)
    make sense to try to release a lock within an interrupt
    handler. */
 
-//### lock_release previous version
 
-/*
-void
-lock_release (struct lock *lock) 
-{
-  ASSERT (lock != NULL);
-  ASSERT (lock_held_by_current_thread (lock));
-
-  remove_lock (lock);
-  priority_newly_set();
-
-  lock->holder = NULL;
-
-  if (!thread_mlfqs) 
-  {
-    remove_lock (lock);
-    priority_newly_set();
-  }
-
-  sema_up (&lock->semaphore);
-}
-*/
 
 
 void
@@ -320,7 +272,6 @@ lock_release (struct lock *lock)
     remove_lock (lock);
     priority_newly_set();
   }
-
 
   sema_up (&lock->semaphore);
   return; 
@@ -432,10 +383,10 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 }
 
 bool
-semaphore_priority_compare(struct list_elem *t1, struct list_elem *t2, void *aux UNUSED){
+semaphore_priority_compare(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED){
   
-  struct semaphore_elem *sema_e1 = list_entry (t1, struct semaphore_elem, elem);
-	struct semaphore_elem *sema_e2 = list_entry (t2, struct semaphore_elem, elem);
+  struct semaphore_elem *sema_e1 = list_entry (e1, struct semaphore_elem, elem);
+	struct semaphore_elem *sema_e2 = list_entry (e2, struct semaphore_elem, elem);
 	struct list *sema_e1_waiters = &(sema_e1->semaphore.waiters);
 	struct list *sema_e2_waiters = &(sema_e2->semaphore.waiters);
 
