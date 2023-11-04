@@ -19,9 +19,6 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "vm/page.h"
-#include "vm/swap.h"
-#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -158,6 +155,7 @@ start_process (void *file_name_)
   //printf("Checking Memory\n"); // for debugging
   //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true); // for debugging
   palloc_free_page (argv); //new
+  palloc_free_page (fn_copy);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -207,6 +205,12 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  int i;
+  for(i = 2; i < cur->fd_nxt; i++) process_close_file(i);/* file descriptor 테이블의 최대값을 이용해 file descriptor의 최소값인 2가 될 때까지 파일을 닫음 */
+	
+  palloc_free_page(cur->fd_table); /* file descriptor 테이블 메모리 해제 */
+  file_close(cur->file_run);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
