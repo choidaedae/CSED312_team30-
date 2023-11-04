@@ -13,10 +13,5 @@ void construct_esp(char *file_name, void **esp);
 int fn_to_argument(char **argv, char *file_name);
 void argument_stack(char **argv, int argc, void **esp);
 struct thread *get_child_process (pid_t pid);
-void remove_child_process(struct thread *cp);
-
-int process_add_file (struct file *f);
-struct file *process_get_file(int fd);
-void process_close_file(int fd);
 
 #endif /* userprog/process.h */
