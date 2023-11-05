@@ -13,7 +13,7 @@
 static void syscall_handler(struct intr_frame *);
 struct lock lock_file;
 
-static void is_address_vaild(void *addr)
+static void isAddressValid(void *addr)
 {
   if(addr < (void *)0x08048000 || addr >= (void *)0xc0000000)
   {
@@ -24,7 +24,7 @@ static void check_string(char *str, unsigned size)
 {
   while(size--)
   {
-    is_address_vaild((void*)str++);
+    isAddressValid((void*)str++);
   }
 }
 
@@ -33,7 +33,7 @@ void get_argument(void *esp, int *arg, int count)
   int i;
   for (i = 0; i < count; i++)
   {
-    is_address_vaild(esp + 4 * i);
+    isAddressValid(esp + 4 * i);
     arg[i] = *(int *)(esp + 4 * i);
   }
 }
@@ -65,7 +65,7 @@ pid_t sys_exec(const char *file)
     return -1;
   }
   child = get_child_process(pid);
-  sema_down(&(child->sema_load));
+  sema_down(&(child->sema_exec));
   if (!child->isLoad)
   {
     return -1;
@@ -273,7 +273,7 @@ void sys_close(int fd)
 static void
 syscall_handler(struct intr_frame *f)
 {
-  is_address_vaild(f->esp);
+  isAddressValid(f->esp);
 
   int argv[3];
   switch (*(uint32_t *)(f->esp))
@@ -287,7 +287,7 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_EXEC:
     get_argument(f->esp + 4, &argv[0], 1);
-    is_address_vaild((void *)argv[0]);
+    isAddressValid((void *)argv[0]);
     f->eax = sys_exec((const char *)argv[0]);
     break;
   case SYS_WAIT:
@@ -296,17 +296,17 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_CREATE:
     get_argument(f->esp + 4, &argv[0], 2);
-    is_address_vaild((void *)argv[0]);
+    isAddressValid((void *)argv[0]);
     f->eax = sys_create((const char *)argv[0], (unsigned)argv[1]);
     break;
   case SYS_REMOVE:
     get_argument(f->esp + 4, &argv[0], 1);
-    is_address_vaild((void *)argv[0]);
+    isAddressValid((void *)argv[0]);
     f->eax = sys_remove((const char *)argv[0]);
     break;
   case SYS_OPEN:
     get_argument(f->esp + 4, &argv[0], 1);
-    is_address_vaild((void *)argv[0]);
+    isAddressValid((void *)argv[0]);
     f->eax = sys_open((const char *)argv[0]);
     break;
   case SYS_FILESIZE:

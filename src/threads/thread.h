@@ -99,19 +99,19 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 
-    struct thread *parent; /* parent process의 descriptor */
-    struct list_elem child_elem; /* child list element */
-    struct list child_list;/* child list */
-    bool isLoad;/* process의 프로그램 메모리 적재 유무 */
-    bool isExit;/* process가 종료 유무 확인 */
-    struct semaphore sema_exit;/* exit semaphore */
-    struct semaphore sema_load;/* load semaphore */
-    int exit_status;/* exit 호출 시 종료 status */
+    struct thread *parent;
+    struct list_elem child_elem;
+    struct list child_list;
+    bool isLoad;
+    bool isExit;
+    struct semaphore sema_wait;
+    struct semaphore sema_exec;
+    int exit_status;
 
-    struct file **fd_table; /* file descriptor 테이블 */
-    int fd_nxt;             /* 현재 테이블에 존재하는 fd값의 최대값 + 1 */
+    struct file **fd_table;
+    int fd_nxt;
 
-    struct file *file_run;   /* 현재 실행중인 파일 추가 */
+    struct file *file_run;
 #endif
 
     /* Owned by thread.c. */

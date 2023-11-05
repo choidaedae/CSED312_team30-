@@ -150,7 +150,7 @@ start_process (void *file_name_)
   if(success){ //new
     argument_stack(argv, argc, &if_.esp);
   }
-  sema_up(&thread_current()->sema_load);
+  sema_up(&thread_current()->sema_exec);
 
   //printf("Checking Memory\n"); // for debugging
   //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true); // for debugging
@@ -194,7 +194,7 @@ process_wait (tid_t child_tid)
   {
     return -1;
   }
-  sema_down(&child->sema_exit);
+  sema_down(&child->sema_wait);
   status = child->exit_status;
   list_remove(&(child->child_elem));
 	palloc_free_page(child);
