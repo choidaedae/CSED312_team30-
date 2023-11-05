@@ -13,18 +13,15 @@
 static void syscall_handler(struct intr_frame *);
 struct lock lock_file;
 
-static void isAddressValid(void *addr)
+bool isAddressValid(void *addr)
 {
-  if(addr < (void *)0x08048000 || addr >= (void *)0xc0000000)
+  if(addr >= (void *)0x08048000 && addr < (void *)0xc0000000)
   {
-    sys_exit(-1);
+    return true;
   }
-}
-static void check_string(char *str, unsigned size)
-{
-  while(size--)
+  else
   {
-    isAddressValid((void*)str++);
+    return false;
   }
 }
 
@@ -33,7 +30,10 @@ void get_argument(void *esp, int *arg, int count)
   int i;
   for (i = 0; i < count; i++)
   {
-    isAddressValid(esp + 4 * i);
+    if(!isAddressValid(esp + 4 * i))
+    {
+      sys_exit(-1);
+    }
     arg[i] = *(int *)(esp + 4 * i);
   }
 }
@@ -59,6 +59,10 @@ void sys_exit(int status)
 pid_t sys_exec(const char *file)
 {
   struct thread *child;
+  if(!isAddressValid(file))
+  {
+    sys_exit(-1);
+  }
   pid_t pid = process_execute(file);
   if (pid == -1)
   {
@@ -80,7 +84,7 @@ int sys_wait(pid_t pid)
 
 bool sys_create(const char *file, unsigned initial_size)
 {
-  if (file==NULL)
+  if(!isAddressValid(file)||file==NULL)
   {
     sys_exit(-1);
   }
@@ -89,24 +93,36 @@ bool sys_create(const char *file, unsigned initial_size)
 
 bool sys_remove(const char *file)
 {
+  if(!isAddressValid(file))
+  {
+    sys_exit(-1);
+  }
   return filesys_remove(file);
 }
 
 int sys_open(const char *file)
 {
+  if(!isAddressValid(file))
+  {
+    sys_exit(-1);
+  }
   struct file *f;
     
   lock_acquire(&lock_file);
   f = filesys_open(file);
-
-  if (!strcmp(thread_current()->name, file)) file_deny_write(f);
 
   if (f == NULL)
   {
     lock_release(&lock_file);
     return -1;
   }
-  int fd = thread_current()->fd_nxt++;
+
+  if (!strcmp(thread_current()->name, file))
+  {
+    file_deny_write(f);
+  }
+
+  int fd = thread_current()->fd_count++;
   thread_current()->fd_table[fd] = f;
   lock_release(&lock_file);
   return fd;
@@ -116,7 +132,7 @@ int sys_filesize(int fd)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_nxt)
+  if(fd < thread_current()->fd_count)
   {
 		f = thread_current()->fd_table[fd];
 	}
@@ -138,9 +154,17 @@ int sys_filesize(int fd)
 
 int sys_read(int fd, void *buffer, unsigned size)
 {
+  int i;
+  for(int i=0;i<size;i++)
+  {
+    if(!isAddressValid(buffer))
+    {
+      sys_exit(-1);
+    }
+  }
   int read_size = 0;
   struct file *f;
-  int current_fd=thread_current()->fd_nxt;
+  int current_fd=thread_current()->fd_count;
 
   if (fd < 0 || fd > current_fd)
   {
@@ -177,10 +201,18 @@ int sys_read(int fd, void *buffer, unsigned size)
 
 int sys_write(int fd, const void *buffer, unsigned size)
 {
+  int i;
+  for(int i=0;i<size;i++)
+  {
+    if(!isAddressValid(buffer))
+    {
+      sys_exit(-1);
+    }
+  }
   int write_size = 0;
   struct file *f;
 
-  int current_fd=thread_current()->fd_nxt;
+  int current_fd=thread_current()->fd_count;
 
   if (fd < 1 || fd > current_fd)
   {
@@ -214,7 +246,7 @@ void sys_seek(int fd, unsigned position)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_nxt)
+  if(fd < thread_current()->fd_count)
   {
 		f = thread_current()->fd_table[fd];
 	}
@@ -233,7 +265,7 @@ unsigned sys_tell(int fd)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_nxt)
+  if(fd < thread_current()->fd_count)
   {
 		f = thread_current()->fd_table[fd];
 	}
@@ -252,7 +284,7 @@ unsigned sys_tell(int fd)
 void sys_close(int fd)
 {
   struct file *f;
-  if(fd < thread_current()->fd_nxt)
+  if(fd < thread_current()->fd_count)
   {
 		f = thread_current()->fd_table[fd];
 	}
@@ -273,7 +305,10 @@ void sys_close(int fd)
 static void
 syscall_handler(struct intr_frame *f)
 {
-  isAddressValid(f->esp);
+  if(!isAddressValid(f->esp))
+  {
+    sys_exit(-1);
+  }
 
   int argv[3];
   switch (*(uint32_t *)(f->esp))
@@ -287,7 +322,6 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_EXEC:
     get_argument(f->esp + 4, &argv[0], 1);
-    isAddressValid((void *)argv[0]);
     f->eax = sys_exec((const char *)argv[0]);
     break;
   case SYS_WAIT:
@@ -296,17 +330,14 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_CREATE:
     get_argument(f->esp + 4, &argv[0], 2);
-    isAddressValid((void *)argv[0]);
     f->eax = sys_create((const char *)argv[0], (unsigned)argv[1]);
     break;
   case SYS_REMOVE:
     get_argument(f->esp + 4, &argv[0], 1);
-    isAddressValid((void *)argv[0]);
     f->eax = sys_remove((const char *)argv[0]);
     break;
   case SYS_OPEN:
     get_argument(f->esp + 4, &argv[0], 1);
-    isAddressValid((void *)argv[0]);
     f->eax = sys_open((const char *)argv[0]);
     break;
   case SYS_FILESIZE:
@@ -315,12 +346,10 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_READ:
     get_argument(f->esp + 4, &argv[0], 3);
-    check_string((char*)argv[1],(unsigned)argv[2]);
     f->eax = sys_read((int)argv[0], (void *)argv[1], (unsigned)argv[2]);
     break;
   case SYS_WRITE:
     get_argument(f->esp + 4, &argv[0], 3);
-    check_string((char*)argv[1],(unsigned)argv[2]);
     f->eax = sys_write((int)argv[0], (const void *)argv[1], (unsigned)argv[2]);
     break;
   case SYS_SEEK:

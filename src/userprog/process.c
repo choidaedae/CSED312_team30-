@@ -211,7 +211,7 @@ process_exit (void)
   uint32_t *pd;
 
   int i;
-  for(i = 2; i < cur->fd_nxt; i++)
+  for(i = 2; i < cur->fd_count; i++)
   {
     sys_close(i);
   }
