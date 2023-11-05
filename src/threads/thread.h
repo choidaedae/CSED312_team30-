@@ -111,7 +111,7 @@ struct thread
     struct file **fd_table;
     int fd_nxt;
 
-    struct file *file_run;
+    struct file *running_file;
 #endif
 
     /* Owned by thread.c. */
