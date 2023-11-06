@@ -342,12 +342,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  lock_acquire(&lock_file); /* 락 획득 */
+  lock_acquire(&lock_file); 
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
     {
-      lock_release(&lock_file);/* 락 해제 */
+      lock_release(&lock_file); 
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
