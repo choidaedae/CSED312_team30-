@@ -310,9 +310,9 @@ thread_exit (void)
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
-  thread_current()->isExit = true;/* process descriptor에 process 종료를 알림 */
+  thread_current()->isExit = true;
   if(thread_current() != initial_thread){
-	  sema_up(&(thread_current()->sema_wait)); /* parentprocess의 대기 상태 이탈 */
+	  sema_up(&(thread_current()->sema_wait));
   }
   thread_current ()->status = THREAD_DYING;
   schedule ();

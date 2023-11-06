@@ -621,13 +621,19 @@ void argument_stack(char **argv, int argc, void **esp){
   //printf("%s", argv); //for debugging
   //printf("%d", argc); //for debugging
 
-  // *argv[i]
+  // *argv[i] 
+  // echo xy 
+  // argv[0] : echo\0
+  // argv[1] : x\0
+  // argc: 2
   for (i = argc - 1; i >= 0; i--) {
     len = strlen(argv[i]);
     *esp -= len + 1;
     strlcpy(*esp, argv[i], len + 1);
     argv[i] = *esp;
   }
+
+  // echo\0x\0
 
   // align stack 
   if (((uint32_t)*esp) % 4 !=0) *esp -= ((uint32_t)*esp) % 4;

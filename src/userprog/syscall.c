@@ -157,7 +157,7 @@ int sys_read(int fd, void *buffer, unsigned size)
   int i;
   for(int i=0;i<size;i++)
   {
-    if(!isAddressValid(buffer))
+    if(!isAddressValid(buffer+i))
     {
       sys_exit(-1);
     }
@@ -204,7 +204,7 @@ int sys_write(int fd, const void *buffer, unsigned size)
   int i;
   for(int i=0;i<size;i++)
   {
-    if(!isAddressValid(buffer))
+    if(!isAddressValid(buffer+i))
     {
       sys_exit(-1);
     }
