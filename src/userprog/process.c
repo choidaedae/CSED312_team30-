@@ -117,7 +117,7 @@ process_execute (const char *file_name)
   {
     child = list_entry(e, struct thread, child_elem);
     if(child->exit_status == -1)
-      return process_wait(tid);
+      return process_wait(tid); 
   }
   return tid;
 }
