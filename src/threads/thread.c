@@ -214,7 +214,7 @@ thread_create (const char *name, int priority,
     {
       return TID_ERROR;
     }
-    t->fd_nxt = 2;
+    t->fd_count = 2;
   #endif
 
   /* Add to run queue. */
