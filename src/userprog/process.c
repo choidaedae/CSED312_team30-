@@ -352,10 +352,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
   
-  t->running_file = file;    /* thread 구조체의 run_file을 현재 실행할 파일로 초기화 */
-  file_deny_write(file);  /* file_deny_write()를 이용하여 파일에 대한 write를 거부 */
+  t->running_file = file;
+  file_deny_write(file);
 
-  lock_release(&lock_file);/* 락 해제 */
+  lock_release(&lock_file);
 
 
   /* Read and verify executable header. */
