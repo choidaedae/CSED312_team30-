@@ -112,6 +112,11 @@ struct thread
     int fd_count;
 
     struct file *running_file;
+
+    struct hash vm;     /* thread가 가진 virtual address space를 관리하는 hash table */
+
+    struct list mmap_list;
+    int mmap_nxt;
 #endif
 
     /* Owned by thread.c. */

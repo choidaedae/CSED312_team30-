@@ -1,5 +1,11 @@
 {
     "files.associations": {
-        "file.h": "c"
+        "file.h": "c",
+        "frame.h": "c",
+        "page.h": "c",
+        "malloc.h": "c",
+        "vaddr.h": "c",
+        "thread.h": "c",
+        "fsutil.h": "c"
     }
 }

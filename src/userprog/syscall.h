@@ -23,5 +23,8 @@ void sys_seek (int fd, unsigned position);
 unsigned sys_tell (int fd);
 void sys_close (int fd);
 
+mapid_t sys_mmap(int fd, void *addr);
+void sys_munmap(mapid_t mapid);
+
 
 #endif /* userprog/syscall.h */

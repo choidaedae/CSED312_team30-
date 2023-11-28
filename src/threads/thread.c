@@ -209,12 +209,16 @@ thread_create (const char *name, int priority,
     sema_init(&(t->sema_wait), 0);
     sema_init(&(t->sema_exec), 0);
 
+    t->fd_count = 2;
     t->fd_table = palloc_get_page(PAL_ZERO);
     if(t->fd_table == NULL)
     {
       return TID_ERROR;
     }
-    t->fd_count = 2;
+
+    list_init (&t->mmap_list);
+    t->mmap_nxt = 1;
+
   #endif
 
   /* Add to run queue. */

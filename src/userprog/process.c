@@ -19,6 +19,9 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
+#include "vm/swap.h"
+#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -131,7 +134,9 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
-  char* fn_copy = palloc_get_page(0);
+  vm_init(&thread_current()->vm);
+
+  char* fn_copy = palloc_get_page(PAL_ZERO);
   int argc;
   strlcpy(fn_copy,file_name,PGSIZE);
   char** argv;
@@ -150,6 +155,7 @@ start_process (void *file_name_)
   if(success){ //new
     argument_stack(argv, argc, &if_.esp);
   }
+  //hex_dump(if_.esp , if_.esp , PHYS_BASE-if_.esp , true);
   sema_up(&thread_current()->sema_exec);
 
   //printf("Checking Memory\n"); // for debugging
@@ -217,7 +223,11 @@ process_exit (void)
   }
 	
   palloc_free_page(cur->fd_table);
+
+  for (i = 1; i < cur->mmap_nxt; i++) sys_munmap(i);
   file_close(cur->running_file);
+
+  vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -516,6 +526,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+  //#####만점 보고서에는 file_lock걸고, file도 reopen한다.
+ /*  lock_acquire(&file_lock);
+    struct file *reopen_file = file_reopen(file);
+    file_seek (file, ofs);
+    lock_release(&file_lock); */
+
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
@@ -525,29 +541,38 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-        return false;
+      // /* Get a page of memory. */
+      // uint8_t *kpage = palloc_get_page (PAL_USER);
+      // if (kpage == NULL)
+      //   return false;
 
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+      // /* Load this page. */
+      // if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      //   {
+      //     palloc_free_page (kpage);
+      //     return false; 
+      //   }
+      // memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
+      // /* Add the page to the process's address space. */
+      // if (!install_page (upage, kpage, writable)) 
+      //   {
+      //     palloc_free_page (kpage);
+      //     return false; 
+      //   }
+
+      /* vm_entry 생성 */
+      //#####file 대신 reopen_file 사용
+      struct vm_entry *vme = make_vme(VM_BIN, upage, writable, false, file, ofs, page_read_bytes, page_zero_bytes);
+      if(!vme) return false;
+
+      /* insert_vme() 함수를 사용해서 생성한 vm_entry를 hash table에 추가 */
+      insert_vme (&thread_current ()->vm, vme);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
+      ofs += page_read_bytes;
       upage += PGSIZE;
     }
   return true;
@@ -558,19 +583,76 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
+  struct page *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = alloc_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      //#####((uint8_t *) PHYS_BASE) - PGSIZE 에 대해 VM 경계 주소로 내림 하는 pg_round_down함수 안씀
+      success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true);
       if (success)
         *esp = PHYS_BASE;
       else
-        palloc_free_page (kpage);
+      {
+        free_page(kpage->kaddr);
+        return success;
+      }
     }
-  return success;
+    else
+      return success;
+
+    /* vm_entry 생성 */
+    //#####((uint8_t *) PHYS_BASE) - PGSIZE 에 대해 VM 경계 주소로 내림 하는 pg_round_down함수 안씀
+    kpage->vme = make_vme(VM_ANON, ((uint8_t *)PHYS_BASE) - PGSIZE, true, true, NULL, NULL, 0, 0);
+    if (!kpage->vme)  return false;
+
+    /* insert_vme() 함수로 hash table에 추가 */
+    insert_vme(&thread_current()->vm, kpage->vme);
+    return success;
+}
+
+bool verify_stack(uint32_t addr, void *esp)
+{
+  uint32_t stack_start = 0xC0000000;
+  uint32_t stack_limit = 0x8000000;
+
+  if (!is_user_vaddr(addr))
+    return false; //address < stack_start
+  if (addr < stack_start - stack_limit)
+    return false;
+  if (addr < esp - 32)
+    return false;
+
+  return true;
+}
+
+bool expand_stack(void *addr)
+{
+  struct page *kpage;
+  void *upage = pg_round_down(addr);
+  bool success = false;
+  
+  kpage = alloc_page(PAL_USER | PAL_ZERO);
+  if (kpage != NULL)
+  {
+    success = install_page(upage, kpage->kaddr, true);
+    if (!success)
+    {
+      free_page(kpage->kaddr);
+      return success;
+    }
+  }
+  else
+    return success;
+
+  /* vm_entry 생성 */
+  kpage->vme = make_vme(VM_ANON, upage, true, true, NULL, NULL, 0, 0);
+  if (!kpage->vme)  return false;
+
+  /* insert_vme() 함수로 hash table에 추가 */
+  insert_vme(&thread_current()->vm, kpage->vme);
+  return success; 
 }
 
 
@@ -673,4 +755,84 @@ struct thread *get_child_process (pid_t pid)
       return t;
   }
   return NULL;
+}
+
+void remove_child_process(struct thread *cp)
+{
+  if(cp != NULL)
+	{
+		list_remove(&(cp->child_elem));  /* child list에서 제거*/
+		palloc_free_page(cp);           /* process descriptor 메모리 해제 */
+	}
+}
+
+int process_add_file (struct file *f)
+{
+  int fd = thread_current()->fd_count;
+
+  thread_current()->fd_table[fd] = f; /* 파일 객체를 file descriptor 테이블에 추가*/
+  thread_current()->fd_count++; /* file descriptor의 최대값 1 증가 */
+
+  return fd;  /* file descriptor 리턴 */
+}
+
+struct file *process_get_file(int fd)
+{
+  struct file *f;
+
+  if(fd < thread_current()->fd_count) {
+		f = thread_current()->fd_table[fd]; /* file descriptor에 해당하는 파일 객체를 리턴 */
+		return f;
+	}
+	return NULL; /* 없을 시 NULL 리턴 */
+}
+
+void process_close_file(int fd)
+{
+	struct file *f;
+
+	if((f = process_get_file(fd))) {  /* file descriptor에 해당하는 파일을 닫음 */
+		file_close(f);
+		thread_current()->fd_table[fd] = NULL;  /* file descriptor 테이블 해당 엔트리 초기화 */
+	}
+}
+
+bool handle_mm_fault(struct vm_entry *vme)
+{
+  bool success = false;
+  
+  //void* kaddr = palloc_get_page(PAL_USER); /* palloc_get_page()를 이용해서 물리메모리 할당 */
+  struct page *kpage;
+  kpage = alloc_page(PAL_USER);
+  kpage->vme = vme;
+
+  switch (vme->type)
+  {
+  case VM_BIN:
+  case VM_FILE:
+    success = load_file(kpage->kaddr, vme);
+    if (!success)
+    {
+      free_page(kpage->kaddr);
+      return false;
+    }
+    break;
+  case VM_ANON:
+    swap_in(vme->swap_slot, kpage->kaddr);
+    break;
+  default:
+    NOT_REACHED ();
+  }
+
+  // install_page를 이용해서 physical page와 virtual page 맵핑
+  //#####만점보고서에는 이 경우 vme->is_loaded=false를 해준다.
+  if (!install_page(vme->vaddr, kpage->kaddr, vme->writable))
+  {
+    free_page(kpage->kaddr);
+    return false;
+  }
+
+  // 로드 성공 여부 반환
+  vme->is_loaded = true;
+  return true;
 }
