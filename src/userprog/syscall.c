@@ -368,8 +368,22 @@ sys_mmap(int fd, void *addr)
       size_t page_read_bytes = file_len < PGSIZE ? file_len : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      struct vm_entry *vme = make_vme(VM_FILE, addr, true, false, mfe->file, ofs, page_read_bytes, page_zero_bytes);
-      if(!vme) return false;
+      struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+      if (!vme)
+    {
+      return false;
+    }
+
+      memset(vme, 0, sizeof(struct vm_entry));
+      vme->type = VM_FILE;
+      vme->vaddr = addr;
+      vme->writable = true;
+      vme->is_loaded = false;
+
+      vme->file = mfe->file;
+      vme->offset = ofs;
+      vme->read_bytes = page_read_bytes;
+      vme->zero_bytes = page_zero_bytes;
 
       list_push_back(&mfe->vme_list, &vme->mmap_elem);
       insert_vme(&thread_current()->vm, vme);

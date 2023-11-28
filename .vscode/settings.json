@@ -6,6 +6,12 @@
         "malloc.h": "c",
         "vaddr.h": "c",
         "thread.h": "c",
-        "fsutil.h": "c"
+        "fsutil.h": "c",
+        "array": "c",
+        "istream": "c",
+        "ostream": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c"
     }
 }

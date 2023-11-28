@@ -155,30 +155,41 @@ page_fault (struct intr_frame *f)
     sys_exit(-1);
   }
 
-
+   bool load = false;
   struct vm_entry *vme = find_vme (fault_addr);
    if (!vme)
    {
-      if (!verify_stack(fault_addr, f->esp)) sys_exit(-1);
-      if (!expand_stack(fault_addr)) sys_exit(-1);
+      if (!verify_stack(fault_addr, f->esp))
+      {
+         sys_exit(-1);
+      }
+      if (!expand_stack(fault_addr))
+      {
+         sys_exit(-1);
+      }
       return;
    }
-   if (!handle_mm_fault(vme)) {
-      sys_exit(-1);
+   else
+   {
+      load = handle_mm_fault(vme);
+      if(vme->is_loaded == true)
+      {
+         load = true;
+      }
    }
 
-   //#####만점 보고서는 밑 내용을 이용해서 kill함수를 통해 process를 죽인다.
-  
-//   if (!user || is_kernel_vaddr(fault_addr) || not_present ) exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-//   printf ("Page fault at %p: %s error %s page in %s context.\n",
-//           fault_addr,
-//           not_present ? "not present" : "rights violation",
-//           write ? "writing" : "reading",
-//           user ? "user" : "kernel");
-//   kill (f);
+     if(!load)
+     {
+         printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+         kill (f);
+     }
 }
 

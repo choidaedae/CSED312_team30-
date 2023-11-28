@@ -41,17 +41,16 @@ struct page {
     struct list_elem lru_elem;
 };
 
+static struct list_elem *get_next_lru_clock();
 
-void vm_init(struct hash *vm);  /* hash table 초기화 */
-void vm_destroy(struct hash *vm);   /* hash table 제거 */
-struct vm_entry *find_vme(void *vaddr); /* 현재 프로세스의 주소공간에서 vaddr에 해당하는 vm_entry를 검색 */
-struct vm_entry *make_vme( uint8_t type, void *vaddr, bool writable, bool is_loaded, struct file* file, 
-                           size_t offset, size_t read_bytes, size_t zero_bytes);
-bool insert_vme(struct hash *vm, struct vm_entry *vme); /* hash table에 vm_entry 삽입 */
-bool delete_vme(struct hash *vm, struct vm_entry *vme); /* 해시 테이블에서 vm_entry삭제 */
+void vm_init(struct hash *vm);
+void vm_destroy(struct hash *vm);
+struct vm_entry *find_vme(void *vaddr);
+bool insert_vme(struct hash *vm, struct vm_entry *vme);
+bool delete_vme(struct hash *vm, struct vm_entry *vme);
 bool load_file(void *kaddr, struct vm_entry *vme);
 
-void try_to_free_pages();
+void* try_to_free_pages(enum palloc_flags flags);
 struct page* alloc_page(enum palloc_flags flags);
 void free_page(void *kaddr);
 

@@ -11,17 +11,40 @@ static unsigned vm_hash_func(const struct hash_elem *, void *UNUSED);
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 static void vm_destroy_func(struct hash_elem *, void *UNUSED);
 
-void vm_init(struct hash *vm) /* hash table 초기화 */
+static struct list_elem *get_next_lru_clock()
 {
-    hash_init(vm, vm_hash_func, vm_less_func, NULL); /* hash_init()으로 hash table 초기화 */
+    if (list_empty(&lru_list))
+    {
+        return NULL;
+    }
+
+    if (lru_clock && lru_clock != list_end(&lru_list))
+    {   
+        lru_clock = list_next(lru_clock);   
+    } 
+
+    if (!lru_clock || lru_clock == list_end(&lru_list))
+    {   
+        return (lru_clock = list_begin(&lru_list));   
+    } 
+    else
+    {
+        return lru_clock;
+    }
+
 }
 
-void vm_destroy(struct hash *vm) /* hash table 제거 */
+void vm_init(struct hash *vm)
 {
-    hash_destroy(vm, vm_destroy_func); /* hash_destroy()으로 hash table의 버킷리스트와 vm_entry들을 제거 */
+    hash_init(vm, vm_hash_func, vm_less_func, NULL);
 }
 
-struct vm_entry *find_vme(void *vaddr) /* 현재 프로세스의 주소공간에서 vaddr에 해당하는 vm_entry를 검색 */
+void vm_destroy(struct hash *vm)
+{
+    hash_destroy(vm, vm_destroy_func);
+}
+
+struct vm_entry *find_vme(void *vaddr)
 {
     struct vm_entry vme;
     struct hash *vm = &thread_current()->vm;
@@ -31,34 +54,12 @@ struct vm_entry *find_vme(void *vaddr) /* 현재 프로세스의 주소공간에
     else return NULL;
 }
 
-struct vm_entry *make_vme( uint8_t type, void *vaddr, bool writable, bool is_loaded, struct file* file, 
-                           size_t offset, size_t read_bytes, size_t zero_bytes)
-{
-    /* vm_entry 생성 (malloc 사용) */
-    struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
-    if (!vme) return NULL;
-
-    /* vm_entry 멤버들 설정, virtual page가 요구될 때 읽어야할 파일의 오프셋과 사이즈, 마지막에 패딩할 제로 바이트 등등 */
-    memset(vme, 0, sizeof(struct vm_entry));
-    vme->type = type;
-    vme->vaddr = vaddr;
-    vme->writable = writable;
-    vme->is_loaded = is_loaded;
-
-    vme->file = file;
-    vme->offset = offset;
-    vme->read_bytes = read_bytes;
-    vme->zero_bytes = zero_bytes;
-
-    return vme;
-}
-
-bool insert_vme(struct hash *vm, struct vm_entry *vme) /* hash table에 vm_entry 삽입 */
+bool insert_vme(struct hash *vm, struct vm_entry *vme)
 {
     if (!hash_insert(vm, &vme->elem))
-        return false;
-    else
         return true;
+    else
+        return false;
 }
 
 bool delete_vme(struct hash *vm, struct vm_entry *vme)
@@ -84,7 +85,14 @@ vm_hash_func(const struct hash_elem *e, void *aux UNUSED)
 static bool
 vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
 {
-    return hash_entry(a, struct vm_entry, elem)->vaddr < hash_entry(b, struct vm_entry, elem)->vaddr;
+    void *vaddr_a = hash_entry(a, struct vm_entry, elem)->vaddr;
+    void *vaddr_b = hash_entry(b, struct vm_entry, elem)->vaddr;
+    if(vaddr_a < vaddr_b)
+        return true;
+    else
+        return false;
+
+    //return hash_entry(a, struct vm_entry, elem)->vaddr < hash_entry(b, struct vm_entry, elem)->vaddr;
 }
 
 static void
@@ -107,19 +115,27 @@ bool load_file(void *kaddr, struct vm_entry *vme)
     return true;
 }
 
-void try_to_free_pages()
+void* try_to_free_pages(enum palloc_flags flags)
 {
     //#####만점 보고서는 pm 공간내고 page 할당해서 return하고, 소스코드는 그냥 비우기만 하는 함수
     lock_acquire(&lru_lock);
 
-    struct page *page = victim_page();
+    struct list_elem *element = get_next_lru_clock();
+    struct page *page = list_entry(element, struct page, lru_elem);
+    while (pagedir_is_accessed(page->thread->pagedir, page->vme->vaddr))
+    {
+        pagedir_set_accessed(page->thread->pagedir, page->vme->vaddr, false);
+        element = get_next_lru_clock();
+    }
+    page = list_entry(element, struct page, lru_elem);
+
     bool dirty = pagedir_is_dirty(page->thread->pagedir, page->vme->vaddr);
     
-    if (page->vme->type == VM_FILE)
+    if (page->vme->type == VM_FILE&&dirty)
     {
-        if(dirty) file_write_at(page->vme->file, page->kaddr, page->vme->read_bytes, page->vme->offset);
+        file_write_at(page->vme->file, page->kaddr, page->vme->read_bytes, page->vme->offset);
     }
-    else if (!(page->vme->type == VM_BIN && !dirty))
+    else if (page->vme->type == VM_ANON||(page->vme->type == VM_BIN&&dirty))
     { 
         page->vme->swap_slot = swap_out(page->kaddr);
         page->vme->type = VM_ANON;
@@ -131,23 +147,38 @@ void try_to_free_pages()
     palloc_free_page(page->kaddr);
     free(page);
     lock_release(&lru_lock);
+
+    return palloc_get_page(flags);
 }
 
 struct page *alloc_page(enum palloc_flags flags)
 {
+    if((flags & PAL_USER) == 0)
+    {
+        return NULL;
+    }
+
     struct page *page;
+    void *page_kaddr;
+
+    page_kaddr=palloc_get_page(flags);
+    while (!page_kaddr)
+    {
+        //#####try_to_free_pages 함수 구현이 달라서 page 할당도 해 줘야함
+        page_kaddr=try_to_free_pages(flags);
+        //page_kaddr = palloc_get_page(flags);
+    }
+
     page = (struct page *)malloc(sizeof(struct page));
-    if (!page) return NULL;
+    if (!page)
+    {
+        palloc_free_page(page_kaddr);
+        return NULL;
+    }
 
     memset(page, 0, sizeof(struct page));
     page->thread = thread_current();
-    page->kaddr = palloc_get_page(flags);
-    while (!page->kaddr)
-    {
-        //#####try_to_free_pages 함수 구현이 달라서 page 할당도 해 줘야함
-        try_to_free_pages();
-        page->kaddr = palloc_get_page(flags);
-    }
+    page->kaddr = page_kaddr;
     
     add_page_to_lru_list(page);
     return page;
@@ -156,14 +187,22 @@ struct page *alloc_page(enum palloc_flags flags)
 void free_page(void *kaddr)
 {
     lock_acquire(&lru_lock);
-    struct page *page = find_page_in_lru_list(kaddr);
-    if (page != NULL)
+    struct page *lru_page =NULL;
+    struct list_elem *element;
+    for (element = list_begin(&lru_list); element != list_end(&lru_list); element = list_next(element))
     {
-        //#####만점보고서는 pagedir_clear_page함수 안씀
-        pagedir_clear_page(page->thread->pagedir, page->vme->vaddr);
-        del_page_from_lru_list(page);
-        palloc_free_page(page->kaddr);
-        free(page);
+        lru_page = list_entry(element, struct page, lru_elem);
+        if (lru_page->kaddr == kaddr)
+        {
+            if (lru_page != NULL)
+            {
+                pagedir_clear_page(lru_page->thread->pagedir, lru_page->vme->vaddr);
+                del_page_from_lru_list(lru_page);
+                palloc_free_page(lru_page->kaddr);
+                free(lru_page);
+            }
+            break;
+        }
     }
     lock_release(&lru_lock);
 }
