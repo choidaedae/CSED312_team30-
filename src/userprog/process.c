@@ -526,7 +526,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+  //$$$$$
+  lock_acquire(&lock_file);
+  struct file *reopen_file = file_reopen(file);
+  //$$$$$
   file_seek (file, ofs);
+  //$$$$$
+  lock_release(&lock_file);
+  //$$$$$
+
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       /* Calculate how to fill this page.
@@ -547,7 +555,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme->writable = writable;
       vme->is_loaded = false;
 
-      vme->file = file;
+      //$$$$$
+      /*vme->file = file;*/
+      vme->file = reopen_file;
+      //$$$$$
       vme->offset = ofs;
       vme->read_bytes = page_read_bytes;
       vme->zero_bytes = page_zero_bytes;
@@ -807,16 +818,15 @@ void process_close_file(int fd)
 
 bool handle_mm_fault(struct vm_entry *vme)
 {
+  //lock_acquire(&lru_lock);
   bool success = false;
   
-  //void* kaddr = palloc_get_page(PAL_USER); /* palloc_get_page()를 이용해서 물리메모리 할당 */
   struct page *kpage;
   kpage = alloc_page(PAL_USER);
   kpage->vme = vme;
 
   if(vme->type==VM_BIN)
   {
-    //success = load_file(kpage->kaddr, vme);
     if (!load_file(kpage->kaddr, vme))
     {
       free_page(kpage->kaddr);
@@ -835,24 +845,6 @@ bool handle_mm_fault(struct vm_entry *vme)
   {
     swap_in(vme->swap_slot, kpage->kaddr);
   }
-
-  // switch (vme->type)
-  // {
-  // case VM_BIN:
-  // case VM_FILE:
-  //   success = load_file(kpage->kaddr, vme);
-  //   if (!success)
-  //   {
-  //     free_page(kpage->kaddr);
-  //     return false;
-  //   }
-  //   break;
-  // case VM_ANON:
-  //   swap_in(vme->swap_slot, kpage->kaddr);
-  //   break;
-  // default:
-  //   NOT_REACHED ();
-  // }
   vme->is_loaded = install_page(vme->vaddr, kpage->kaddr, vme->writable);
 
   if (vme->is_loaded)
@@ -864,4 +856,5 @@ bool handle_mm_fault(struct vm_entry *vme)
     free_page(kpage->kaddr);
     return false;
   }
+  //lock_release(&lru_lock);
 }

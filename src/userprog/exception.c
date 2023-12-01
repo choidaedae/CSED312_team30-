@@ -171,7 +171,9 @@ page_fault (struct intr_frame *f)
    }
    else
    {
+      //lock_acquire(&lru_lock);
       load = handle_mm_fault(vme);
+      //lock_release(&lru_lock);
       if(vme->is_loaded == true)
       {
          load = true;

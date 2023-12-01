@@ -9,7 +9,9 @@
 #include "userprog/syscall.h"
 #include "threads/palloc.h"
 #include "filesys/off_t.h"
+#include "userprog/syscall.h"
 extern struct lock lru_lock;
+
 
 struct vm_entry {
     //#####bool pinned 가 없다.

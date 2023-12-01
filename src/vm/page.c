@@ -7,23 +7,33 @@
 #include "threads/malloc.h"
 #include "filesys/file.h"
 
+#include "userprog/syscall.h"
+extern struct lock lock_file;
+
 static unsigned vm_hash_func(const struct hash_elem *, void *UNUSED);
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 static void vm_destroy_func(struct hash_elem *, void *UNUSED);
 
 static struct list_elem *get_next_lru_clock()
 {
+    if (list_empty(&lru_list))
+    {
+        return NULL;
+    }
+
+    if (lru_clock && lru_clock != list_end(&lru_list))
+    {   
+        lru_clock = list_next(lru_clock);   
+    } 
+
     if (!lru_clock || lru_clock == list_end(&lru_list))
-  {
-    if (!list_empty(&lru_list)) return (lru_clock = list_begin(&lru_list));
-    else return NULL;      
-  } 
-  else
-  {
-    lru_clock = list_next(lru_clock);
-    if (lru_clock == list_end(&lru_list)) return get_next_lru_clock();
-    else return lru_clock;
-  }
+    {   
+        return (lru_clock = list_begin(&lru_list));   
+    } 
+    else
+    {
+        return lru_clock;
+    }
 
 }
 
@@ -110,10 +120,24 @@ bool load_file(void *kaddr, struct vm_entry *vme)
 
 void* try_to_free_pages(enum palloc_flags flags)
 {
-    //#####만점 보고서는 pm 공간내고 page 할당해서 return하고, 소스코드는 그냥 비우기만 하는 함수
     lock_acquire(&lru_lock);
+    //$$$$$
+    if(list_empty(&lru_list) == true)
+    {
+        lock_release(&lru_lock);
+        return palloc_get_page(flags);
+    }
+    //$$$$$
+
 
     struct list_elem *element = get_next_lru_clock();
+    //$$$$$
+    if(element == NULL)
+    {
+        lock_release(&lru_lock);
+        return palloc_get_page(flags);
+    }
+    //$$$$$
     struct page *page = list_entry(element, struct page, lru_elem);
     while (pagedir_is_accessed(page->thread->pagedir, page->vme->vaddr))
     {
@@ -126,7 +150,13 @@ void* try_to_free_pages(enum palloc_flags flags)
     
     if (page->vme->type == VM_FILE&&dirty)
     {
+        //$$$$$
+        lock_acquire(&lock_file);
+        //$$$$$
         file_write_at(page->vme->file, page->kaddr, page->vme->read_bytes, page->vme->offset);
+        //$$$$$
+        lock_release(&lock_file);
+        //$$$$$
     }
     else if (page->vme->type == VM_ANON||(page->vme->type == VM_BIN&&dirty))
     { 

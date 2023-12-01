@@ -15,9 +15,16 @@ void lru_list_init(void)
 
 void add_page_to_lru_list(struct page *page)
 {
+  //$$$$$
+  if(page != NULL)
+  {
+  //$$$$$
   lock_acquire(&lru_lock);
   list_push_back(&lru_list, &page->lru_elem);
   lock_release(&lru_lock);
+  //$$$$$
+  }
+  //$$$$$
 }
 
 void del_page_from_lru_list(struct page *page)
