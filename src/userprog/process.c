@@ -585,8 +585,13 @@ setup_stack (void **esp)
   kpage = alloc_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
-      if (install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true))
+      lock_acquire(&lru_lock);
+      bool temp=install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true);
+      lock_release(&lru_lock);
+      if(temp)
         *esp = PHYS_BASE;
+      // if (install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true))
+      //   *esp = PHYS_BASE;
       else
       {
         free_page(kpage->kaddr);
@@ -641,11 +646,19 @@ bool expand_stack(void *addr)
   kpage = alloc_page(PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {
-    if (!install_page(upage, kpage->kaddr, true))
+    lock_acquire(&lru_lock);
+    bool temp=install_page(upage, kpage->kaddr, true);
+    lock_release(&lru_lock);
+    if(!temp)
     {
       free_page(kpage->kaddr);
       return false;
     }
+    // if (!install_page(upage, kpage->kaddr, true))
+    // {
+    //   free_page(kpage->kaddr);
+    //   return false;
+    // }
   }
   else
     return false;
