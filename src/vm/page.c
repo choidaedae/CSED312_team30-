@@ -13,24 +13,17 @@ static void vm_destroy_func(struct hash_elem *, void *UNUSED);
 
 static struct list_elem *get_next_lru_clock()
 {
-    if (list_empty(&lru_list))
-    {
-        return NULL;
-    }
-
-    if (lru_clock && lru_clock != list_end(&lru_list))
-    {   
-        lru_clock = list_next(lru_clock);   
-    } 
-
     if (!lru_clock || lru_clock == list_end(&lru_list))
-    {   
-        return (lru_clock = list_begin(&lru_list));   
-    } 
-    else
-    {
-        return lru_clock;
-    }
+  {
+    if (!list_empty(&lru_list)) return (lru_clock = list_begin(&lru_list));
+    else return NULL;      
+  } 
+  else
+  {
+    lru_clock = list_next(lru_clock);
+    if (lru_clock == list_end(&lru_list)) return get_next_lru_clock();
+    else return lru_clock;
+  }
 
 }
 
