@@ -637,12 +637,10 @@ bool expand_stack(void *addr)
 {
   struct page *kpage;
   void *upage = pg_round_down(addr);
-  //bool success = false;
   
   kpage = alloc_page(PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {
-    //success = install_page(upage, kpage->kaddr, true);
     if (!install_page(upage, kpage->kaddr, true))
     {
       free_page(kpage->kaddr);
@@ -845,8 +843,9 @@ bool handle_mm_fault(struct vm_entry *vme)
   {
     swap_in(vme->swap_slot, kpage->kaddr);
   }
+  lock_acquire(&lru_lock);
   vme->is_loaded = install_page(vme->vaddr, kpage->kaddr, vme->writable);
-
+  lock_release(&lru_lock);
   if (vme->is_loaded)
   {
     return true;
