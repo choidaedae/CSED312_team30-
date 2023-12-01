@@ -68,10 +68,14 @@ bool insert_vme(struct hash *vm, struct vm_entry *vme)
 bool delete_vme(struct hash *vm, struct vm_entry *vme)
 {
     if (!hash_delete(vm, &vme->elem))
+    {
         return false;
+    }
     else
     {
+        lock_acquire(&lru_lock);
         free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+        lock_release(&lru_lock);
         swap_free(vme->swap_slot);
         free(vme);
         return true;
@@ -102,7 +106,9 @@ static void
 vm_destroy_func(struct hash_elem *e, void *aux UNUSED)
 {
     struct vm_entry *vme = hash_entry(e, struct vm_entry, elem);
+    lock_acquire(&lru_lock);
     free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+    lock_release(&lru_lock);
     swap_free(vme->swap_slot);
     free(vme);
 }
@@ -120,11 +126,11 @@ bool load_file(void *kaddr, struct vm_entry *vme)
 
 void* try_to_free_pages(enum palloc_flags flags)
 {
-    lock_acquire(&lru_lock);
+    //lock_acquire(&lru_lock);
     //$$$$$
     if(list_empty(&lru_list) == true)
     {
-        lock_release(&lru_lock);
+        //lock_release(&lru_lock);
         return palloc_get_page(flags);
     }
     //$$$$$
@@ -134,7 +140,7 @@ void* try_to_free_pages(enum palloc_flags flags)
     //$$$$$
     if(element == NULL)
     {
-        lock_release(&lru_lock);
+        //lock_release(&lru_lock);
         return palloc_get_page(flags);
     }
     //$$$$$
@@ -169,7 +175,7 @@ void* try_to_free_pages(enum palloc_flags flags)
     del_page_from_lru_list(page);
     palloc_free_page(page->kaddr);
     free(page);
-    lock_release(&lru_lock);
+    //lock_release(&lru_lock);
 
     return palloc_get_page(flags);
 }
@@ -187,9 +193,7 @@ struct page *alloc_page(enum palloc_flags flags)
     page_kaddr=palloc_get_page(flags);
     while (!page_kaddr)
     {
-        //#####try_to_free_pages 함수 구현이 달라서 page 할당도 해 줘야함
         page_kaddr=try_to_free_pages(flags);
-        //page_kaddr = palloc_get_page(flags);
     }
 
     page = (struct page *)malloc(sizeof(struct page));
@@ -209,7 +213,7 @@ struct page *alloc_page(enum palloc_flags flags)
 
 void free_page(void *kaddr)
 {
-    lock_acquire(&lru_lock);
+    //lock_acquire(&lru_lock);
     struct page *lru_page =NULL;
     struct list_elem *element;
     for (element = list_begin(&lru_list); element != list_end(&lru_list); element = list_next(element))
@@ -227,5 +231,5 @@ void free_page(void *kaddr)
             break;
         }
     }
-    lock_release(&lru_lock);
+    //lock_release(&lru_lock);
 }

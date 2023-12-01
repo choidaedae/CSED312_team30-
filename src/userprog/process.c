@@ -26,6 +26,7 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 extern struct lock lock_file;
+extern struct lock lru_lock;
 
 void construct_esp(char *file_name, void **esp) {
 
@@ -580,30 +581,31 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
+  lock_acquire(&lru_lock);
   struct page *kpage;
 
   kpage = alloc_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
-      lock_acquire(&lru_lock);
-      bool temp=install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true);
-      lock_release(&lru_lock);
-      if(temp)
+      if (install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true))
         *esp = PHYS_BASE;
-      // if (install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true))
-      //   *esp = PHYS_BASE;
       else
       {
         free_page(kpage->kaddr);
+        lock_release(&lru_lock);
         return false;
       }
     }
     else
+    {
+      lock_release(&lru_lock);
       return false;
+    }
 
     struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
     if (!vme)
     {
+      lock_release(&lru_lock);
       return false;
     }
 
@@ -620,6 +622,7 @@ setup_stack (void **esp)
 
     kpage->vme =vme;
 
+    lock_release(&lru_lock);
     return insert_vme(&thread_current()->vm, kpage->vme);
 }
 
@@ -640,32 +643,30 @@ bool verify_stack(uint32_t addr, void *esp)
 
 bool expand_stack(void *addr)
 {
+  lock_acquire(&lru_lock);
   struct page *kpage;
   void *upage = pg_round_down(addr);
   
   kpage = alloc_page(PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {
-    lock_acquire(&lru_lock);
-    bool temp=install_page(upage, kpage->kaddr, true);
-    lock_release(&lru_lock);
-    if(!temp)
+    if (!install_page(upage, kpage->kaddr, true))
     {
       free_page(kpage->kaddr);
+      lock_release(&lru_lock);
       return false;
     }
-    // if (!install_page(upage, kpage->kaddr, true))
-    // {
-    //   free_page(kpage->kaddr);
-    //   return false;
-    // }
   }
   else
+  {
+    lock_release(&lru_lock);
     return false;
+  }
 
     struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
     if (!vme)
     {
+      lock_release(&lru_lock);
       return false;
     }
 
@@ -682,7 +683,8 @@ bool expand_stack(void *addr)
 
     kpage->vme =vme;
 
-  return insert_vme(&thread_current()->vm, kpage->vme);
+    lock_release(&lru_lock);
+    return insert_vme(&thread_current()->vm, kpage->vme);
 }
 
 
@@ -829,7 +831,7 @@ void process_close_file(int fd)
 
 bool handle_mm_fault(struct vm_entry *vme)
 {
-  //lock_acquire(&lru_lock);
+  lock_acquire(&lru_lock);
   bool success = false;
   
   struct page *kpage;
@@ -841,6 +843,7 @@ bool handle_mm_fault(struct vm_entry *vme)
     if (!load_file(kpage->kaddr, vme))
     {
       free_page(kpage->kaddr);
+      lock_release(&lru_lock);
       return false;
     }
   }
@@ -849,6 +852,7 @@ bool handle_mm_fault(struct vm_entry *vme)
     if (!load_file(kpage->kaddr, vme))
     {
       free_page(kpage->kaddr);
+      lock_release(&lru_lock);
       return false;
     }
   }
@@ -856,16 +860,16 @@ bool handle_mm_fault(struct vm_entry *vme)
   {
     swap_in(vme->swap_slot, kpage->kaddr);
   }
-  lock_acquire(&lru_lock);
   vme->is_loaded = install_page(vme->vaddr, kpage->kaddr, vme->writable);
-  lock_release(&lru_lock);
   if (vme->is_loaded)
   {
+    lock_release(&lru_lock);
     return true;
   }
   else
   {
     free_page(kpage->kaddr);
+    lock_release(&lru_lock);
     return false;
   }
   //lock_release(&lru_lock);

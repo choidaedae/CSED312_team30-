@@ -13,6 +13,8 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 
+extern struct lock lru_lock;
+
 #include "userprog/process.h"
 
 static void syscall_handler(struct intr_frame *);
@@ -414,8 +416,10 @@ void sys_munmap(mapid_t mapid)
       lock_acquire(&lock_file);
       if (file_write_at(vme->file, vme->vaddr, vme->read_bytes, vme->offset) != (int)vme->read_bytes) NOT_REACHED();
       lock_release(&lock_file);
-
+      
+      lock_acquire(&lru_lock);
       free_page(pagedir_get_page(thread_current()->pagedir,vme->vaddr));
+      lock_release(&lru_lock);
     }
     vme->is_loaded = false;
     ele = list_remove(ele);
