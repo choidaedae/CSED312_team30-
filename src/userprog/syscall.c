@@ -217,6 +217,8 @@ int sys_read(int fd, void *buffer, unsigned size)
   }
   else
   {
+    //^^^
+    /*
     f = thread_current()->fd_table[fd];
 
     if (f==NULL)
@@ -224,9 +226,13 @@ int sys_read(int fd, void *buffer, unsigned size)
       sys_exit(-1);
     }
     read_size = file_read(f, buffer, size);
+    */
+      //^^^
+    if ((f = process_get_file(fd)))
+      read_size = file_read(f, buffer, size);
   }
 
-  lock_release(&lock_file);
+  lock_release(&lock_file); 
 
   return read_size;
 }
@@ -260,13 +266,18 @@ int sys_write(int fd, const void *buffer, unsigned size)
   }
   else
   {
+    
+    //^^^
+    /*
     f = thread_current()->fd_table[fd];
-
     if (f==NULL)
     {
       sys_exit(-1);
     }
-    write_size = file_write(f, (const void *)buffer, size);
+    */
+    //^^^
+    if ((f = process_get_file(fd)))
+      write_size = file_write(f, (const void *)buffer, size);
   }
 
   lock_release(&lock_file);
@@ -276,8 +287,13 @@ int sys_write(int fd, const void *buffer, unsigned size)
 
 void sys_seek(int fd, unsigned position)
 {
-  struct file *f;
+  //^^^
+  //struct file *f;
+  //^^^
   lock_acquire(&lock_file);
+  struct file *f = process_get_file(fd); 
+  //^^^
+  /*
   if(fd < thread_current()->fd_count)
   {
 		f = thread_current()->fd_table[fd];
@@ -286,7 +302,8 @@ void sys_seek(int fd, unsigned position)
   {
     f=NULL;
   }
-  
+  //^^^
+  */
   if (f != NULL)
   {
     file_seek(f, position);
@@ -296,10 +313,14 @@ void sys_seek(int fd, unsigned position)
 
 unsigned sys_tell(int fd)
 {
-  struct file *f;
-  int pos;
+  //^^^
+  //struct file *f;
+  //int pos;
+  //^^^
 
   lock_acquire(&lock_file);
+  //^^^
+  /*
   if(fd < thread_current()->fd_count)
   {
 		f = thread_current()->fd_table[fd];
@@ -308,8 +329,10 @@ unsigned sys_tell(int fd)
   {
     f=NULL;
   }
-
-  
+  */
+  //^^^
+  struct file *f = process_get_file(fd); /* file descriptor를 이용하여 파일 객체 검색 */
+  unsigned pos;
   if (f != NULL)
   {
     pos = file_tell(f);
@@ -317,6 +340,8 @@ unsigned sys_tell(int fd)
   else pos = 0;
 
   lock_release(&lock_file);
+
+  return pos;
 }
 
 void sys_close(int fd)
@@ -382,11 +407,11 @@ sys_mmap(int fd, void *addr)
       vme->writable = true;
       vme->is_loaded = false;
       //%%%%%
-      /*
-      vme->_pin=true;
-      or
+      
       vme->_pin=false;
-      */
+      //or
+      //vme->_pin=false;
+      //*/
       //%%%%%
 
       vme->file = mfe->file;
