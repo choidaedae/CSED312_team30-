@@ -381,6 +381,13 @@ sys_mmap(int fd, void *addr)
       vme->vaddr = addr;
       vme->writable = true;
       vme->is_loaded = false;
+      //%%%%%
+      /*
+      vme->_pin=true;
+      or
+      vme->_pin=false;
+      */
+      //%%%%%
 
       vme->file = mfe->file;
       vme->offset = ofs;

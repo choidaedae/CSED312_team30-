@@ -106,10 +106,22 @@ static void
 vm_destroy_func(struct hash_elem *e, void *aux UNUSED)
 {
     struct vm_entry *vme = hash_entry(e, struct vm_entry, elem);
-    lock_acquire(&lru_lock);
-    free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
-    lock_release(&lru_lock);
-    swap_free(vme->swap_slot);
+    if(vme->is_loaded)
+    {
+        lock_acquire(&lru_lock);
+        free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+        lock_release(&lru_lock);
+        //%%%%%
+        //pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
+        //%%%%%
+    }
+    else
+    {
+        if(vme->_pin)
+        {
+            swap_free(vme->swap_slot);
+        }
+    }
     free(vme);
 }
 
@@ -136,7 +148,7 @@ void* try_to_free_pages(enum palloc_flags flags)
     //$$$$$
 
 
-    struct list_elem *element = get_next_lru_clock();
+    //struct list_elem *element = get_next_lru_clock();
     //$$$$$
     //if(element == NULL)
     //{
@@ -144,13 +156,30 @@ void* try_to_free_pages(enum palloc_flags flags)
     //    return palloc_get_page(flags);
     //}
     //$$$$$
-    struct page *page = list_entry(element, struct page, lru_elem);
-    while (pagedir_is_accessed(page->thread->pagedir, page->vme->vaddr))
+    //struct page *page = list_entry(element, struct page, lru_elem);
+    struct page *page;
+    struct list_elem *element;
+    while (true)
     {
-        pagedir_set_accessed(page->thread->pagedir, page->vme->vaddr, false);
         element = get_next_lru_clock();
+        page = list_entry(element, struct page, lru_elem);
+        if(page->vme->_pin)
+        {
+            continue;
+        }
+        if(pagedir_is_accessed(page->thread->pagedir, page->vme->vaddr))
+        {
+            pagedir_set_accessed(page->thread->pagedir, page->vme->vaddr, false);
+            continue;
+        }
+        else
+        {
+            break;
+        }
+        //pagedir_set_accessed(page->thread->pagedir, page->vme->vaddr, false);
+        //element = get_next_lru_clock();
     }
-    page = list_entry(element, struct page, lru_elem);
+    //page = list_entry(element, struct page, lru_elem);
 
     bool dirty = pagedir_is_dirty(page->thread->pagedir, page->vme->vaddr);
     

@@ -19,6 +19,7 @@ struct vm_entry {
     void *vaddr; /* virtual page number */
     bool writable; /* 해당 주소에 write 가능 여부 */
     bool is_loaded; /* physical memory의 load 여부를 알려주는 flag */
+    bool _pin;
     struct file* file; /* mapping된 파일 */
     size_t offset; /* read 할 파일 offset */
     size_t read_bytes; /* virtual page에 쓰여져 있는 데이터 byte 수 */
