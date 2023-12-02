@@ -528,12 +528,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   //$$$$$
-  lock_acquire(&lock_file);
-  struct file *reopen_file = file_reopen(file);
+  //lock_acquire(&lock_file);
+  //struct file *reopen_file = file_reopen(file);
   //$$$$$
   file_seek (file, ofs);
   //$$$$$
-  lock_release(&lock_file);
+  //lock_release(&lock_file);
   //$$$$$
 
   while (read_bytes > 0 || zero_bytes > 0) 
@@ -557,8 +557,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme->is_loaded = false;
 
       //$$$$$
-      /*vme->file = file;*/
-      vme->file = reopen_file;
+      vme->file = file;
+      //vme->file = reopen_file;
       //$$$$$
       vme->offset = ofs;
       vme->read_bytes = page_read_bytes;
