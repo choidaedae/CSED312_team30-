@@ -116,8 +116,8 @@ main (void)
   exception_init ();
   syscall_init ();
 #endif
-  swap_init();
-  lru_list_init();
+  swap_init(); // Project 3
+  lru_list_init(); // Project 3
 
   /* Start thread scheduler and enable interrupts. */
   thread_start ();

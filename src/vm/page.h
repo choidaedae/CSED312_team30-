@@ -19,7 +19,7 @@ struct vm_entry {
     void *vaddr; /* virtual page number */
     bool writable; /* 해당 주소에 write 가능 여부 */
     bool is_loaded; /* physical memory의 load 여부를 알려주는 flag */
-    bool _pin;
+    bool _pin; // Project 3: Implemented pinned 
     struct file* file; /* mapping된 파일 */
     size_t offset; /* read 할 파일 offset */
     size_t read_bytes; /* virtual page에 쓰여져 있는 데이터 byte 수 */
@@ -33,8 +33,8 @@ struct vm_entry {
 struct mmap_file {
     mapid_t mapid;
     struct file* file;
-    struct list_elem elem;
     struct list vme_list;
+    struct list_elem elem;
 };
 
 struct page {

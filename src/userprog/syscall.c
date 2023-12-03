@@ -103,9 +103,13 @@ bool sys_create(const char *file, unsigned initial_size)
   //   sys_exit(-1);
   // }
   if (file == NULL) sys_exit(-1);
+
   lock_acquire(&lock_file);
+
   bool success = filesys_create(file, initial_size);
+
   lock_release(&lock_file);
+
   return success; 
 }
 
@@ -116,9 +120,13 @@ bool sys_remove(const char *file)
   //   sys_exit(-1);
   // }
   if (file == NULL) sys_exit(-1);
+
   lock_acquire(&lock_file);
+
   bool success = filesys_remove(file);
+
   lock_release(&lock_file);
+
   return success; 
 }
 
@@ -131,6 +139,7 @@ int sys_open(const char *file)
   struct file *f;
     
   lock_acquire(&lock_file);
+
   f = filesys_open(file);
 
   if (f == NULL)
@@ -146,6 +155,7 @@ int sys_open(const char *file)
 
   int fd = thread_current()->fd_count++;
   thread_current()->fd_table[fd] = f;
+
   lock_release(&lock_file);
   return fd;
 }
@@ -153,35 +163,12 @@ int sys_open(const char *file)
 int sys_filesize(int fd)
 {
   struct file *f;
-  int size;
+  int size = 0;
   lock_acquire(&lock_file);
   if (f = process_get_file(fd)) size = file_length(f);
   else size = -1;
-
-  /*
-
-  if(fd < thread_current()->fd_count)
-  {
-		f = thread_current()->fd_table[fd];
-	}
-  else
-  {
-    f=NULL;
-  }
-
-
-  if (f==NULL)
-  {
-    return -1;
-  }
-  else
-  {
-    return file_length(f);
-  }
-
-  */
- lock_release(&lock_file);
- return size;
+  lock_release(&lock_file);
+  return size;
 }
 
 int sys_read(int fd, void *buffer, unsigned size)
@@ -217,17 +204,6 @@ int sys_read(int fd, void *buffer, unsigned size)
   }
   else
   {
-    //^^^
-    /*
-    f = thread_current()->fd_table[fd];
-
-    if (f==NULL)
-    {
-      sys_exit(-1);
-    }
-    read_size = file_read(f, buffer, size);
-    */
-      //^^^
     if ((f = process_get_file(fd)))
       read_size = file_read(f, buffer, size);
   }
@@ -266,16 +242,7 @@ int sys_write(int fd, const void *buffer, unsigned size)
   }
   else
   {
-    
-    //^^^
-    /*
-    f = thread_current()->fd_table[fd];
-    if (f==NULL)
-    {
-      sys_exit(-1);
-    }
-    */
-    //^^^
+
     if ((f = process_get_file(fd)))
       write_size = file_write(f, (const void *)buffer, size);
   }
@@ -287,52 +254,28 @@ int sys_write(int fd, const void *buffer, unsigned size)
 
 void sys_seek(int fd, unsigned position)
 {
-  //^^^
-  //struct file *f;
-  //^^^
+  struct file *f;
   lock_acquire(&lock_file);
-  struct file *f = process_get_file(fd); 
-  //^^^
-  /*
-  if(fd < thread_current()->fd_count)
-  {
-		f = thread_current()->fd_table[fd];
-	}
-  else
-  {
-    f=NULL;
-  }
-  //^^^
-  */
+
+  f = process_get_file(fd); 
+
   if (f != NULL)
   {
     file_seek(f, position);
   }
+
   lock_release(&lock_file);
 }
 
 unsigned sys_tell(int fd)
 {
-  //^^^
-  //struct file *f;
-  //int pos;
-  //^^^
 
-  lock_acquire(&lock_file);
-  //^^^
-  /*
-  if(fd < thread_current()->fd_count)
-  {
-		f = thread_current()->fd_table[fd];
-	}
-  else
-  {
-    f=NULL;
-  }
-  */
-  //^^^
-  struct file *f = process_get_file(fd); /* file descriptor를 이용하여 파일 객체 검색 */
+  struct file *f;
   unsigned pos;
+  lock_acquire(&lock_file);
+
+  f = process_get_file(fd); /* file descriptor를 이용하여 파일 객체 검색 */
+  
   if (f != NULL)
   {
     pos = file_tell(f);
@@ -363,13 +306,6 @@ void sys_close(int fd)
   file_close(f);
 	thread_current()->fd_table[fd] = NULL;
 }
-
-//&&&
-void close(int fd)
-{
-  close_file(fd);
-}
-//&&&
 
 mapid_t
 sys_mmap(int fd, void *addr)
@@ -404,23 +340,16 @@ sys_mmap(int fd, void *addr)
 
       struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
       if (!vme)
-    {
+      {
       return false;
-    }
+      }
 
       memset(vme, 0, sizeof(struct vm_entry));
       vme->type = VM_FILE;
       vme->vaddr = addr;
       vme->writable = true;
       vme->is_loaded = false;
-      //%%%%%
-      
       vme->_pin=false;
-      //or
-      //vme->_pin=false;
-      //*/
-      //%%%%%
-
       vme->file = mfe->file;
       vme->offset = ofs;
       vme->read_bytes = page_read_bytes;
@@ -432,6 +361,7 @@ sys_mmap(int fd, void *addr)
       ofs += PGSIZE;
       file_len -= PGSIZE;
     }
+    
   return mfe->mapid;
 }
 

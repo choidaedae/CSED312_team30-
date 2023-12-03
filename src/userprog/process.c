@@ -28,63 +28,6 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 extern struct lock lock_file;
 extern struct lock lru_lock;
 
-void construct_esp(char *file_name, void **esp) {
-
-  int argc;
-  char ** argv;
-  char *name;
-  char *token;
-  char *remain;
-  int i;
-  int len;
-  
-  name = palloc_get_page(PAL_ZERO);
-
-  argc = 0;
-  strlcpy(name, file_name, strlen(file_name) + 1);
-  for(token = strtok_r(name, " ", &remain); token != NULL; token = strtok_r(NULL, " ", &remain)){
-    if(*token != " ")
-      argc++;
-  }
-
-  i = 0;
-  argv = (char **)palloc_get_page(PAL_ZERO);
-  strlcpy(name, file_name, strlen(file_name) + 1);
-  for (token = strtok_r(name, " ", &remain); i < argc; token = strtok_r(NULL, " ", &remain)) {
-    len = strlen(token);
-    argv[i++] = token;
-  }
-
-  for (i = argc - 1; i >= 0; i--) {
-    len = strlen(argv[i]);
-    *esp -= len + 1;
-    strlcpy(*esp, argv[i], len + 1);
-    argv[i] = *esp;
-  }
-
-  *esp -= ((uint32_t)*esp) % 4;
-  
-  *esp -= 4;
-  **(uint32_t **)esp = 0;
-  
-  for (i = argc - 1; i >= 0; i--) {
-    *esp -= 4;
-    **(uint32_t **)esp = argv[i];
-  }
-  
-  *esp -= 4;
-  **(uint32_t **)esp = *esp + 4;
-
-  *esp -= 4;
-  **(uint32_t **)esp = argc;
-  
-  *esp -= 4;
-  **(uint32_t **)esp = 0;
-
-  palloc_free_page(name);
-  palloc_free_page(argv);
-}
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -218,18 +161,15 @@ process_exit (void)
   uint32_t *pd;
 
   int i;
-  //&&& munmap & close 순서 바꿈 
+  // munmap & close 순서 바꿈 
   for (i = 1; i < cur->mmap_nxt+1; i++) sys_munmap(i);
 
 
   for(i = 2; i < cur->fd_count; i++)
   {
      //sys_close(i);
-     //&&&
-     close_file(i);
-     //&&&
+     process_close_file(i);
   }
-	//&&& munmap & close 순서 바꿈 
   
   //palloc_free_page(cur->fd_table);
 
@@ -811,8 +751,9 @@ int process_add_file (struct file *f)
 {
   int fd = thread_current()->fd_count;
 
-  thread_current()->fd_table[fd] = f; /* 파일 객체를 file descriptor 테이블에 추가*/
   thread_current()->fd_count++; /* file descriptor의 최대값 1 증가 */
+  thread_current()->fd_table[fd] = f; /* 파일 객체를 file descriptor 테이블에 추가*/
+  
 
   return fd;  /* file descriptor 리턴 */
 }
@@ -828,27 +769,19 @@ struct file *process_get_file(int fd)
 	return NULL; /* 없을 시 NULL 리턴 */
 }
 
+
 void process_close_file(int fd)
 {
-	struct file *f;
-
-	if((f = process_get_file(fd))) {  /* file descriptor에 해당하는 파일을 닫음 */
-		file_close(f);
-		thread_current()->fd_table[fd] = NULL;  /* file descriptor 테이블 해당 엔트리 초기화 */
-	}
-}
-
-//&&&
-void close_file(int fd)
-{
   struct thread* cur = thread_current();
-  if(cur->fd_table[fd] != NULL)
-  {
+  if(cur->fd_table[fd] != NULL){
+
     file_close(cur->fd_table[fd]);
     cur->fd_table[fd] = NULL;
   }
 }
-//&&&
+
+
+
 
 bool handle_mm_fault(struct vm_entry *vme)
 {

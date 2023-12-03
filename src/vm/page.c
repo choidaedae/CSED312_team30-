@@ -111,9 +111,7 @@ vm_destroy_func(struct hash_elem *e, void *aux UNUSED)
         lock_acquire(&lru_lock);
         free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
         lock_release(&lru_lock);
-        //%%%%%
         //pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
-        //%%%%%
     }
     else
     {
@@ -139,24 +137,9 @@ bool load_file(void *kaddr, struct vm_entry *vme)
 void* try_to_free_pages(enum palloc_flags flags)
 {
     //lock_acquire(&lru_lock);
-    //$$$$$
-    //if(list_empty(&lru_list) == true)
-    //{
-        //lock_release(&lru_lock);
-    //    return palloc_get_page(flags);
-    //}
-    //$$$$$
-
-
     //struct list_elem *element = get_next_lru_clock();
-    //$$$$$
-    //if(element == NULL)
-    //{
-        //lock_release(&lru_lock);
-    //    return palloc_get_page(flags);
-    //}
-    //$$$$$
     //struct page *page = list_entry(element, struct page, lru_elem);
+
     struct page *page;
     struct list_elem *element;
     while (true)
@@ -185,13 +168,9 @@ void* try_to_free_pages(enum palloc_flags flags)
     
     if (page->vme->type == VM_FILE&&dirty)
     {
-        //$$$$$
-        //lock_acquire(&lock_file);
-        //$$$$$
+
         file_write_at(page->vme->file, page->kaddr, page->vme->read_bytes, page->vme->offset);
-        //$$$$$
-        //lock_release(&lock_file);
-        //$$$$$
+
     }
     else if (page->vme->type == VM_ANON||(page->vme->type == VM_BIN&&dirty))
     { 
@@ -243,7 +222,7 @@ struct page *alloc_page(enum palloc_flags flags)
 void free_page(void *kaddr)
 {
     //lock_acquire(&lru_lock);
-    struct page *lru_page =NULL;
+    struct page *lru_page;
     struct list_elem *element;
     for (element = list_begin(&lru_list); element != list_end(&lru_list); element = list_next(element))
     {
