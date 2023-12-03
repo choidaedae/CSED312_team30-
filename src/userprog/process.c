@@ -780,9 +780,6 @@ void process_close_file(int fd)
   }
 }
 
-
-
-
 bool handle_mm_fault(struct vm_entry *vme)
 {
   lock_acquire(&lru_lock);
