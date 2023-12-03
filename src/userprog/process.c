@@ -218,16 +218,22 @@ process_exit (void)
   uint32_t *pd;
 
   int i;
+  //&&& munmap & close 순서 바꿈 
+  for (i = 1; i < cur->mmap_nxt+1; i++) sys_munmap(i);
+
+
   for(i = 2; i < cur->fd_count; i++)
   {
-    sys_close(i);
+     //sys_close(i);
+     //&&&
+     close_file(i);
+     //&&&
   }
-	
-  palloc_free_page(cur->fd_table);
+	//&&& munmap & close 순서 바꿈 
+  
+  //palloc_free_page(cur->fd_table);
 
-  for (i = 1; i < cur->mmap_nxt; i++) sys_munmap(i);
-  file_close(cur->running_file);
-
+  file_close(cur->running_file); // 안하면 rox 실패함
   vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
@@ -831,6 +837,18 @@ void process_close_file(int fd)
 		thread_current()->fd_table[fd] = NULL;  /* file descriptor 테이블 해당 엔트리 초기화 */
 	}
 }
+
+//&&&
+void close_file(int fd)
+{
+  struct thread* cur = thread_current();
+  if(cur->fd_table[fd] != NULL)
+  {
+    file_close(cur->fd_table[fd]);
+    cur->fd_table[fd] = NULL;
+  }
+}
+//&&&
 
 bool handle_mm_fault(struct vm_entry *vme)
 {

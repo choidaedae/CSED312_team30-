@@ -364,6 +364,13 @@ void sys_close(int fd)
 	thread_current()->fd_table[fd] = NULL;
 }
 
+//&&&
+void close(int fd)
+{
+  close_file(fd);
+}
+//&&&
+
 mapid_t
 sys_mmap(int fd, void *addr)
 {
@@ -529,6 +536,9 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_CLOSE:
     get_argument(f->esp + 4, &argv[0], 1);
+    //&&&
+    //close(argv[0]);
+    //&&&
     sys_close(argv[0]);
     break;
   case SYS_MMAP:
