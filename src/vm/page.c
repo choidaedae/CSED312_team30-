@@ -53,16 +53,26 @@ struct vm_entry *find_vme(void *vaddr)
     struct hash *vm = &thread_current()->vm;
     struct hash_elem *elem;
     vme.vaddr = pg_round_down(vaddr);
-    if ((elem = hash_find(vm, &vme.elem))) return hash_entry(elem, struct vm_entry, elem);
-    else return NULL;
+    if ((elem = hash_find(vm, &vme.elem))) 
+    {
+        return hash_entry(elem, struct vm_entry, elem);
+    }
+    else
+    {
+        return NULL;
+    }
 }
 
 bool insert_vme(struct hash *vm, struct vm_entry *vme)
 {
     if (!hash_insert(vm, &vme->elem))
+    {
         return true;
+    }
     else
+    {
         return false;
+    }
 }
 
 bool delete_vme(struct hash *vm, struct vm_entry *vme)
@@ -95,11 +105,13 @@ vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNU
     void *vaddr_a = hash_entry(a, struct vm_entry, elem)->vaddr;
     void *vaddr_b = hash_entry(b, struct vm_entry, elem)->vaddr;
     if(vaddr_a < vaddr_b)
+    {
         return true;
+    }
     else
+    {
         return false;
-
-    //return hash_entry(a, struct vm_entry, elem)->vaddr < hash_entry(b, struct vm_entry, elem)->vaddr;
+    }
 }
 
 static void
@@ -111,7 +123,6 @@ vm_destroy_func(struct hash_elem *e, void *aux UNUSED)
         lock_acquire(&lru_lock);
         free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
         lock_release(&lru_lock);
-        //pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
     }
     else
     {
@@ -136,10 +147,6 @@ bool load_file(void *kaddr, struct vm_entry *vme)
 
 void* try_to_free_pages(enum palloc_flags flags)
 {
-    //lock_acquire(&lru_lock);
-    //struct list_elem *element = get_next_lru_clock();
-    //struct page *page = list_entry(element, struct page, lru_elem);
-
     struct page *page;
     struct list_elem *element;
     while (true)
@@ -159,18 +166,13 @@ void* try_to_free_pages(enum palloc_flags flags)
         {
             break;
         }
-        //pagedir_set_accessed(page->thread->pagedir, page->vme->vaddr, false);
-        //element = get_next_lru_clock();
     }
-    //page = list_entry(element, struct page, lru_elem);
 
     bool dirty = pagedir_is_dirty(page->thread->pagedir, page->vme->vaddr);
     
     if (page->vme->type == VM_FILE&&dirty)
     {
-
         file_write_at(page->vme->file, page->kaddr, page->vme->read_bytes, page->vme->offset);
-
     }
     else if (page->vme->type == VM_ANON||(page->vme->type == VM_BIN&&dirty))
     { 
@@ -183,7 +185,6 @@ void* try_to_free_pages(enum palloc_flags flags)
     del_page_from_lru_list(page);
     palloc_free_page(page->kaddr);
     free(page);
-    //lock_release(&lru_lock);
 
     return palloc_get_page(flags);
 }
@@ -221,7 +222,6 @@ struct page *alloc_page(enum palloc_flags flags)
 
 void free_page(void *kaddr)
 {
-    //lock_acquire(&lru_lock);
     struct page *lru_page;
     struct list_elem *element;
     for (element = list_begin(&lru_list); element != list_end(&lru_list); element = list_next(element))
@@ -239,5 +239,4 @@ void free_page(void *kaddr)
             break;
         }
     }
-    //lock_release(&lru_lock);
 }
