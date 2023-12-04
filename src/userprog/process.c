@@ -161,19 +161,16 @@ process_exit (void)
   uint32_t *pd;
 
   int i;
-  // munmap & close 순서 바꿈 
   for (i = 1; i < cur->mmap_nxt+1; i++) sys_munmap(i);
 
 
   for(i = 2; i < cur->fd_count; i++)
   {
-     //sys_close(i);
      process_close_file(i);
   }
   
-  //palloc_free_page(cur->fd_table);
 
-  file_close(cur->running_file); // 안하면 rox 실패함
+  file_close(cur->running_file);
   vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
@@ -473,14 +470,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  //$$$$$
-  //lock_acquire(&lock_file);
-  //struct file *reopen_file = file_reopen(file);
-  //$$$$$
   file_seek (file, ofs);
-  //$$$$$
-  //lock_release(&lock_file);
-  //$$$$$
 
   while (read_bytes > 0 || zero_bytes > 0) 
     {
@@ -503,10 +493,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme->is_loaded = false;
       vme->_pin=false;
 
-      //$$$$$
       vme->file = file;
-      //vme->file = reopen_file;
-      //$$$$$
       vme->offset = ofs;
       vme->read_bytes = page_read_bytes;
       vme->zero_bytes = page_zero_bytes;
@@ -742,8 +729,8 @@ void remove_child_process(struct thread *cp)
 {
   if(cp != NULL)
 	{
-		list_remove(&(cp->child_elem));  /* child list에서 제거*/
-		palloc_free_page(cp);           /* process descriptor 메모리 해제 */
+		list_remove(&(cp->child_elem));
+		palloc_free_page(cp);
 	}
 }
 
@@ -751,11 +738,11 @@ int process_add_file (struct file *f)
 {
   int fd = thread_current()->fd_count;
 
-  thread_current()->fd_count++; /* file descriptor의 최대값 1 증가 */
-  thread_current()->fd_table[fd] = f; /* 파일 객체를 file descriptor 테이블에 추가*/
+  thread_current()->fd_count++;
+  thread_current()->fd_table[fd] = f;
   
 
-  return fd;  /* file descriptor 리턴 */
+  return fd;
 }
 
 struct file *process_get_file(int fd)
@@ -763,10 +750,10 @@ struct file *process_get_file(int fd)
   struct file *f;
 
   if(fd < thread_current()->fd_count) {
-		f = thread_current()->fd_table[fd]; /* file descriptor에 해당하는 파일 객체를 리턴 */
+		f = thread_current()->fd_table[fd];
 		return f;
 	}
-	return NULL; /* 없을 시 NULL 리턴 */
+	return NULL;
 }
 
 
@@ -823,5 +810,4 @@ bool handle_mm_fault(struct vm_entry *vme)
     lock_release(&lru_lock);
     return false;
   }
-  //lock_release(&lru_lock);
 }

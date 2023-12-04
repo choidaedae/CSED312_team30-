@@ -22,24 +22,28 @@ struct lock lock_file;
 
 static void isAddressValid(void *addr, void *esp)
 {
-  // if(addr >= (void *)0x08048000 && addr < (void *)0xc0000000)
-  // {
-  //   return true;
-  // }
-  // else
-  // {
-  //   return false;
-  // }
-  if(addr < (void *)0x08048000 || addr >= (void *)0xc0000000) sys_exit(-1);
+  if(addr < (void *)0x08048000 || addr >= (void *)0xc0000000)
+  {
+    sys_exit(-1);
+  }
   if(!find_vme(addr))
   {
-    if(!verify_stack((int32_t) addr, esp)) sys_exit(-1);
-    if(!expand_stack(addr)) sys_exit(-1);
+    if(!verify_stack((int32_t) addr, esp))
+    {
+      sys_exit(-1);
+    }
+    if(!expand_stack(addr))
+    {
+      sys_exit(-1);
+    }
   }
 }
 static void check_string(char *str, unsigned size, void *esp)
 {
-  while(size--) isAddressValid((void*)str++,esp);
+  while(size--)
+  {
+    isAddressValid((void*)str++,esp);
+  }
 }
 
 void get_argument(void *esp, int *arg, int count)
@@ -73,10 +77,7 @@ void sys_exit(int status)
 pid_t sys_exec(const char *file)
 {
   struct thread *child;
-  // if(!isAddressValid(file))
-  // {
-  //   sys_exit(-1);
-  // }
+
   pid_t pid = process_execute(file);
   if (pid == -1)
   {
@@ -98,10 +99,6 @@ int sys_wait(pid_t pid)
 
 bool sys_create(const char *file, unsigned initial_size)
 {
-  // if(!isAddressValid(file)||file==NULL)
-  // {
-  //   sys_exit(-1);
-  // }
   if (file == NULL) sys_exit(-1);
 
   lock_acquire(&lock_file);
@@ -115,10 +112,6 @@ bool sys_create(const char *file, unsigned initial_size)
 
 bool sys_remove(const char *file)
 {
-  // if(!isAddressValid(file))
-  // {
-  //   sys_exit(-1);
-  // }
   if (file == NULL) sys_exit(-1);
 
   lock_acquire(&lock_file);
@@ -132,10 +125,6 @@ bool sys_remove(const char *file)
 
 int sys_open(const char *file)
 {
-  // if(!isAddressValid(file))
-  // {
-  //   sys_exit(-1);
-  // }
   struct file *f;
     
   lock_acquire(&lock_file);
@@ -173,14 +162,6 @@ int sys_filesize(int fd)
 
 int sys_read(int fd, void *buffer, unsigned size)
 {
-  // int i;
-  // for(int i=0;i<size;i++)
-  // {
-  //   if(!isAddressValid(buffer+i))
-  //   {
-  //     sys_exit(-1);
-  //   }
-  // }
   int read_size = 0;
   struct file *f;
   int current_fd=thread_current()->fd_count;
@@ -215,14 +196,6 @@ int sys_read(int fd, void *buffer, unsigned size)
 
 int sys_write(int fd, const void *buffer, unsigned size)
 {
-  // int i;
-  // for(int i=0;i<size;i++)
-  // {
-  //   if(!isAddressValid(buffer+i))
-  //   {
-  //     sys_exit(-1);
-  //   }
-  // }
   int write_size = 0;
   struct file *f;
 
@@ -402,10 +375,6 @@ void sys_munmap(mapid_t mapid)
 static void
 syscall_handler(struct intr_frame *f)
 {
-  // if(!isAddressValid(f->esp))
-  // {
-  //   sys_exit(-1);
-  // }
   isAddressValid(f->esp, f->esp);
 
   int argv[4];
@@ -466,9 +435,6 @@ syscall_handler(struct intr_frame *f)
     break;
   case SYS_CLOSE:
     get_argument(f->esp + 4, &argv[0], 1);
-    //&&&
-    //close(argv[0]);
-    //&&&
     sys_close(argv[0]);
     break;
   case SYS_MMAP:
