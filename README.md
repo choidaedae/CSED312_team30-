@@ -9,4 +9,4 @@ POSTECH 2023 Fall - CSED312 (Operating Systems) Assignments (Well known as Pinto
 
 ### Note
 - Reports are available in 'main' branch (Here).
-- Our source codes are available in 'master' branch. 
+- Our source codes are available in 'project' branch. 
